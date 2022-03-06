@@ -9,11 +9,12 @@
 #define LOOP 1000
 #define ADDRESS_LENGTH 12
 #define SPEEDUP 1000
+#define test_time 12096000 // 14 days 
 //mutex initializations
 pthread_mutex_t BTSearchmutex,TestCovidmutex, UploadContactsmutex, DeleteContactsmutex;
 
 //race conditions
-pthread_mutex_t BTSearchCond,TestCovidcond,UploadContactscond,DeleteContacscond;
+pthread_cond_t *BTSearchCond,*TestCovidcond,*UploadContactscond,*DeleteContacscond;
 /*
   Some defines I do based on producers and consumers task
 */
@@ -82,7 +83,7 @@ typedef struct MacAddressStructure{
 
 // queue model from producers/consumers was implemented here on buffer
 typedef struct macAddressBuffer{
-  macaddress mac_buffer[BUFFER_SIZE];
+  macaddress queue[BUFFER_SIZE];
   long head,tail;
   int full,empty;
   pthread_mutex_t *mut;
@@ -167,7 +168,19 @@ macaddress BTnearMe(){
       macaddressBuffer = macAddressBuffer_generator(ADDRESS_LENGTH,BUFFER_SIZE);
       //startmeasuring time for getting the mac
       gettimeofday(&macadress.start);
-      return macaddressBuffer[rand()%(sizeof(macaddress)+1)];
+      mac_buffer buffer;
+      mac_bufferAdd(&buffer,macaddressBuffer[rand()%(sizeof(macaddress)+1)])
+      while(dt.tv_sec > 4/SPEEDUP && dt.tv_sec < 20/SPEEDUP){
+        if(isSameMac(buffer.queue[head++].macaddress =  macaddressBuffer[rand()%(sizeof(macaddress)+1)])){
+          buffer.queue[head++].macaddress.isNearMe = true;
+          BTsearchDone = true;
+          return buffer.queue[head++].macaddress;
+        }else{
+          BTsearchDone = false;
+          continue;
+        }
+      }
+      
     }else {
       //measure time interval for macaddress search
       gettimeofday(&t1,NULL);
@@ -184,23 +197,23 @@ bool* testCOVID(void*){
     //let this run in serial in order not to have interferance with covidTest boolean change (made by other threads)
     pthread_mutex_lock(&TestCovidmutex);
     //stall process until it is mutually excluded 
-    while()
+    while(time_interval() < test_time/SPEEDUP)
         pthread_cond_wait(&TestCovidcond);
     pthread_mutex_unlock(&TestCovidmutex);
-  }
+    }
   TestCOVID = rand()%2;
 }
 
-void* uploadContacts(void *arg){
+void* uploadContacts(mac_buffer *q, int buffer_size){
   //all threads are running in a for loop until threir process is done so they are mutually excluded
    while(true){
      
      pthread_mutex_lock(&UploadContactsmutex);
-     while(isNearMePositive == false)
+     while(isNearMePositive == false && testCOVID == false)
       pthread_cond_wait(&UploadContactscond,&UploadContactsmutex);
      pthread_mutex_unlock(&UploadContactsmutex);
-   }
-    if(BTnearMe().isNearMe==True)
+    }
+   
 }
 
 void deleteContacts(macAddressBuffer **buffer){
